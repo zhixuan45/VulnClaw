@@ -10,11 +10,21 @@ interface ViewMeta {
   copy: string;
 }
 
+export interface ShellAction {
+  label: string;
+  glyph: string;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}
+
 interface AppShellProps<T extends string> {
   activeView: T;
   activeNavView?: T;
   nav: NavItem<T>[];
   meta: ViewMeta;
+  quickActions: ShellAction[];
+  sidebarActions: ShellAction[];
   backendUnavailable?: boolean;
   backendError?: string;
   onRetryBackend?: () => void;
@@ -35,6 +45,8 @@ export function AppShell<T extends string>({
   activeNavView,
   nav,
   meta,
+  quickActions,
+  sidebarActions,
   backendUnavailable = false,
   backendError,
   onRetryBackend,
@@ -51,7 +63,13 @@ export function AppShell<T extends string>({
 }: AppShellProps<T>) {
   return (
     <div className="app-shell">
-      <Sidebar activeView={activeView} activeNavView={activeNavView} nav={nav} onSelectView={onSelectView} />
+      <Sidebar
+        activeView={activeView}
+        activeNavView={activeNavView}
+        nav={nav}
+        footerActions={sidebarActions}
+        onSelectView={onSelectView}
+      />
       <main className="workspace">
         <Topbar
           eyebrow={meta.eyebrow}
@@ -87,6 +105,23 @@ export function AppShell<T extends string>({
         />
         <div className="view-mount">{children}</div>
       </main>
+      <aside className="quick-rail" aria-label="quick actions">
+        <div className="quick-rail-main">
+          {quickActions.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className={item.active ? "active" : ""}
+              title={item.label}
+              aria-label={item.label}
+              disabled={item.disabled}
+              onClick={item.onClick}
+            >
+              <span>{item.glyph}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }

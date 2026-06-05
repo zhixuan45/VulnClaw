@@ -1,4 +1,4 @@
-VERSION=0.2.8
+VERSION=0.2.9
 
 # VulnClaw versioned file manifest
 # Keep these files in sync when bumping a release version.
@@ -6,8 +6,12 @@ VERSION=0.2.8
 
 pyproject.toml
 vulnclaw/__init__.py
+vulnclaw/web/__init__.py
 vulnclaw/web/app.py
+frontend/package.json
+frontend/package-lock.json
 README.md
 README_EN.md
+vulnclaw/skills/specialized/osint-recon/references/recon-report-template.md
 tests/test_basic.py
 tests/test_release_workflow.py

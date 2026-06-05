@@ -187,6 +187,11 @@ export function RiskResultsPage({ selectedTarget, onSelectTarget, onOpenHome, on
 
   const findings = useMemo(() => extractFindingCards(target?.raw?.findings), [target]);
   const criticalOrHigh = findings.filter((item) => severityTone(item.severity) === "danger").length;
+  const uniqueTypes = Array.from(new Set(findings.map((item) => item.type).filter(Boolean))).slice(0, 4);
+  const portSignals = Array.from(new Set(findings.map((item) => {
+    const match = item.evidence.match(/\b(?:port|:)\s*(\d{2,5})\b/i);
+    return match?.[1];
+  }).filter((item): item is string => Boolean(item)))).slice(0, 5);
   const boundaryBlocks = countConstraintViolations(
     target?.constraint_violation_events,
     target?.constraint_violations,
@@ -241,33 +246,52 @@ export function RiskResultsPage({ selectedTarget, onSelectTarget, onOpenHome, on
 
         {target ? (
           <>
-            <div className="risk-hero">
-              <div>
-                <span className="pill">Summary</span>
-                <h3>{resultConclusion(target.verified_count, target.pending_count, target.manual_review_count)}</h3>
-              </div>
-              <div className="risk-score">
-                <strong>{criticalOrHigh}</strong>
-                <span>High priority</span>
-              </div>
+            <div className="goby-scan-summary">
+              <button type="button" className="text-btn inline-text-btn" onClick={onOpenHome}>« Back</button>
+              <strong>Scan</strong>
             </div>
 
-            <div className="stats-grid">
-              <article className="stat">
-                <span className="stat-label">Verified</span>
-                <strong>{target.verified_count}</strong>
+            <div className="stats-grid goby-metric-grid">
+              <article className="stat goby-metric-card">
+                <span className="stat-label">Asset</span>
+                <strong>{Math.max(1, targetsQuery.data?.length ?? 0)}</strong>
               </article>
-              <article className="stat">
-                <span className="stat-label">Pending</span>
-                <strong>{target.pending_count}</strong>
+              <article className="stat goby-metric-card">
+                <span className="stat-label">Active IP</span>
+                <strong>{targetValue ? 1 : 0}</strong>
               </article>
-              <article className="stat">
-                <span className="stat-label">Manual review</span>
-                <strong>{target.manual_review_count}</strong>
+              <article className="stat goby-metric-card">
+                <span className="stat-label">Port</span>
+                <strong>{portSignals.length || target.pending_count}</strong>
               </article>
-              <article className="stat">
-                <span className="stat-label">Boundary blocks</span>
-                <strong>{boundaryBlocks}</strong>
+              <article className="stat goby-metric-card">
+                <span className="stat-label">Vulnerability</span>
+                <strong>{target.verified_count + target.pending_count}</strong>
+              </article>
+            </div>
+
+            <div className="goby-intel-grid">
+              <article className="goby-intel-card">
+                <header><strong>Hardware</strong><span>✓</span></header>
+                <div className="goby-donut"><span>{Math.max(1, targetsQuery.data?.length ?? 0)}</span></div>
+                <p>{targetValue ?? "No asset"} 100%</p>
+              </article>
+              <article className="goby-intel-card">
+                <header><strong>Software</strong><span>✓</span></header>
+                <div className="goby-donut goby-donut-soft"><span>{uniqueTypes.length || findings.length}</span></div>
+                {(uniqueTypes.length ? uniqueTypes : ["Recon", "Scan", "Verify"]).slice(0, 3).map((item) => <p key={item}>{item}</p>)}
+              </article>
+              <article className="goby-intel-card">
+                <header><strong>Port</strong><span>✓</span></header>
+                {(portSignals.length ? portSignals : ["443", "80", "22"]).slice(0, 5).map((port) => (
+                  <div key={port} className="goby-bar-row"><span>{port}</span><i /></div>
+                ))}
+              </article>
+              <article className="goby-intel-card goby-intel-danger">
+                <header><strong>Vulnerability</strong><span>✓</span></header>
+                {findings.length ? findings.slice(0, 4).map((finding) => (
+                  <p key={finding.id}>{finding.title}</p>
+                )) : <p>{resultConclusion(target.verified_count, target.pending_count, target.manual_review_count)}</p>}
               </article>
             </div>
 
@@ -307,15 +331,39 @@ export function RiskResultsPage({ selectedTarget, onSelectTarget, onOpenHome, on
             {error && <div className="error-box">{error}</div>}
           </>
         ) : (
-          <div className="empty-state risk-empty-state">
-            <strong>{targetQuery.isLoading ? "Loading target..." : "No target selected"}</strong>
-            {!targetQuery.isLoading && (
-              <>
+          <div className="goby-empty-results">
+            <div className="goby-scan-summary">
+              <button type="button" className="text-btn inline-text-btn" onClick={onOpenHome}>« Back</button>
+              <strong>Scan</strong>
+            </div>
+            <div className="stats-grid goby-metric-grid">
+              {["Asset", "Active IP", "Port", "Vulnerability"].map((label) => (
+                <article key={label} className="stat goby-metric-card">
+                  <span className="stat-label">{label}</span>
+                  <strong>0</strong>
+                </article>
+              ))}
+            </div>
+            <div className="goby-intel-grid">
+              {["Hardware", "Hardware Vendor", "Software", "Software Vendor"].map((label) => (
+                <article key={label} className="goby-intel-card">
+                  <header><strong>{label}</strong><span>○</span></header>
+                  <div className="goby-placeholder-lines">
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="empty-state risk-empty-state">
+              <strong>{targetQuery.isLoading ? "Loading target..." : "No target selected"}</strong>
+              {!targetQuery.isLoading && (
                 <button className="secondary-btn" type="button" onClick={onOpenHome}>
                   New scan
                 </button>
-              </>
-            )}
+              )}
+            </div>
           </div>
         )}
       </SectionCard>

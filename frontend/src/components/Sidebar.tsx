@@ -5,14 +5,23 @@ export interface NavItem<T extends string> {
   icon: string;
 }
 
+interface SidebarFooterAction {
+  label: string;
+  glyph: string;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}
+
 interface SidebarProps<T extends string> {
   activeView: T;
   activeNavView?: T;
   nav: NavItem<T>[];
+  footerActions: SidebarFooterAction[];
   onSelectView: (view: T) => void;
 }
 
-export function Sidebar<T extends string>({ activeView, activeNavView = activeView, nav, onSelectView }: SidebarProps<T>) {
+export function Sidebar<T extends string>({ activeView, activeNavView = activeView, nav, footerActions, onSelectView }: SidebarProps<T>) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -22,7 +31,7 @@ export function Sidebar<T extends string>({ activeView, activeNavView = activeVi
         <div>
           <div className="brand-kicker">VulnClaw</div>
           <h1>VulnClaw</h1>
-          <p>Scan workspace</p>
+          <p>Attack surface mapping</p>
         </div>
       </div>
 
@@ -33,6 +42,7 @@ export function Sidebar<T extends string>({ activeView, activeNavView = activeVi
             type="button"
             className={`nav-item ${activeNavView === item.key ? "active" : ""}`}
             onClick={() => onSelectView(item.key)}
+            title={item.label}
           >
             <span className="nav-icon" aria-hidden="true">
               <img src={item.icon} alt="" />
@@ -46,8 +56,19 @@ export function Sidebar<T extends string>({ activeView, activeNavView = activeVi
       </nav>
 
       <div className="sidebar-footer">
-        <span>Local</span>
-        <strong>Ready</strong>
+        {footerActions.map((action) => (
+          <button
+            key={action.label}
+            type="button"
+            className={action.active ? "active" : ""}
+            title={action.label}
+            aria-label={action.label}
+            disabled={action.disabled}
+            onClick={action.onClick}
+          >
+            {action.glyph}
+          </button>
+        ))}
       </div>
     </aside>
   );

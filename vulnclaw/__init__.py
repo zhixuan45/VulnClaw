@@ -15,6 +15,6 @@ except Exception:
     try:
         __version__ = version("vulnclaw")
     except PackageNotFoundError:
-        __version__ = "0.2.8"
+        __version__ = "0.2.9"
 
 __author__ = "VulnClaw Team"

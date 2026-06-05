@@ -271,42 +271,100 @@ export function HomePage({ selectedTarget, activeTask, latestEvent, taskEvents, 
 
   return (
     <section className="home-page">
-      <div className="scan-launch">
-        <div className="scan-input-row">
-          <label className="field scan-target-field">
-            <span>Target</span>
-            <input value={target} onChange={(event) => setTarget(event.target.value)} placeholder="https://target.example" />
-          </label>
+      <div className="goby-home-board">
+        <div className="goby-welcome-panel" aria-hidden="true">
+          <div className="goby-map-illustration">
+            <span className="map-node map-node-a">IP</span>
+            <span className="map-node map-node-b">WEB</span>
+            <span className="map-node map-node-c">APP</span>
+            <span className="map-node map-node-d">CVE</span>
+            <div className="map-ring">
+              <div className="map-shield">VC</div>
+            </div>
+          </div>
+          <div className="goby-welcome-copy">
+            <h2>Welcome to VulnClaw</h2>
+            <p>Attack surface mapping</p>
+          </div>
+          <button
+            type="button"
+            className={`goby-scan-orb ${submitting ? "hero-orb-busy" : ""}`}
+            disabled={submitting || !target.trim()}
+            onClick={handleStart}
+          >
+            {submitting ? "Starting" : "Scan"}
+          </button>
+        </div>
+
+        <div className="scan-launch goby-task-panel">
+          <div className="goby-task-title">
+            <span className="goby-task-icon">▣</span>
+            <strong>New Scan Task</strong>
+            <button type="button" className="text-btn inline-text-btn" onClick={() => setTarget("")} aria-label="Clear target">
+              ×
+            </button>
+          </div>
+          <div className="goby-task-form">
+            <label className="field scan-target-field field-wide">
+              <span>IP/Domain</span>
+              <textarea
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+                placeholder={"172.16.20.36\nexample.com\n192.0.2.0/24"}
+              />
+            </label>
+            <label className="field field-wide">
+              <span>Black IP</span>
+              <textarea value={blockedHost} onChange={(event) => setBlockedHost(event.target.value)} placeholder="192.0.2.10" />
+            </label>
+            <label className="field">
+              <span>Port</span>
+              <select value={mode} onChange={(event) => setMode(event.target.value as CheckMode)}>
+                {MODES.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Custom ports</span>
+              <input value={onlyPort} onChange={(event) => setOnlyPort(event.target.value)} inputMode="numeric" placeholder="21,22,80,443" />
+            </label>
+          </div>
+
+          <div className="scan-mode-row" aria-label="Scan mode">
+            {MODES.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`scan-mode-pill ${mode === item.key ? "selected-item" : ""}`}
+                onClick={() => setMode(item.key)}
+              >
+                <strong>{item.title}</strong>
+                <span>{item.copy}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="scan-summary-row">
+            <label className="check-row goby-printer-row">
+              <input checked={resume} onChange={(event) => setResume(event.target.checked)} type="checkbox" />
+              <span>Resume previous state</span>
+            </label>
+            <span>{scopeCount ? `${scopeCount} bounds` : "Auto scope"}</span>
+            <button type="button" className="text-btn inline-text-btn" onClick={() => setAdvancedOpen((value) => !value)}>
+              {advancedOpen ? "Hide advanced" : "Advanced"}
+            </button>
+          </div>
+
           <button
             type="button"
             className={`primary-btn scan-start-btn ${submitting ? "hero-orb-busy" : ""}`}
             disabled={submitting || !target.trim()}
             onClick={handleStart}
           >
-            {submitting ? "Starting..." : "Start Scan"}
-          </button>
-        </div>
-
-        <div className="scan-mode-row" aria-label="Scan mode">
-          {MODES.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`scan-mode-pill ${mode === item.key ? "selected-item" : ""}`}
-              onClick={() => setMode(item.key)}
-            >
-              <strong>{item.title}</strong>
-              <span>{item.copy}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="scan-summary-row">
-          <span>{selectedMode.title}</span>
-          <span>{scopeCount ? `${scopeCount} bounds` : "Auto scope"}</span>
-          <span>{resume ? "Resume on" : "Fresh run"}</span>
-          <button type="button" className="text-btn inline-text-btn" onClick={() => setAdvancedOpen((value) => !value)}>
-            {advancedOpen ? "Hide advanced" : "Advanced"}
+            {submitting ? "Starting..." : "Start"}
           </button>
         </div>
       </div>

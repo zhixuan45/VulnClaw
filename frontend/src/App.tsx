@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import type { ShellAction } from "./components/AppShell";
 import { AppShell } from "./components/AppShell";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ToastHost, type ToastItem, type ToastTone } from "./components/ToastHost";
@@ -106,6 +107,7 @@ export function App() {
   );
 
   const latestEvent = taskEvents.length > 0 ? taskEvents[taskEvents.length - 1] : null;
+  const hasStoppableTask = activeTask?.status === "running" || activeTask?.status === "pending";
 
   useEffect(() => {
     const handleHashChange = () => setActiveView(viewFromHash());
@@ -238,12 +240,55 @@ export function App() {
     navigateToView(view);
   }
 
+  const quickActions: ShellAction[] = [
+    { label: "New scan", glyph: "+", active: activeView === "home", onClick: () => navigateToView("home") },
+    { label: "History", glyph: "T", active: activeView === "history", onClick: () => navigateToView("history") },
+    { label: "Reports", glyph: "R", active: activeView === "reports", onClick: () => openReports(activeTask?.target ?? selectedTarget) },
+    {
+      label: "Assets",
+      glyph: "A",
+      active: activeView === "risk",
+      onClick: () => {
+        if (activeTask?.target) setSelectedTarget(activeTask.target);
+        navigateToView("risk");
+      },
+    },
+    {
+      label: "Scope",
+      glyph: "IP",
+      active: activeView === "boundary",
+      onClick: openBoundaryForActiveTask,
+    },
+    {
+      label: "Findings",
+      glyph: "!",
+      active: activeView === "risk",
+      onClick: () => navigateToView("risk"),
+    },
+    { label: "Console", glyph: "C", active: activeView === "advanced", onClick: () => navigateToView("advanced") },
+    {
+      label: "Refresh",
+      glyph: "F",
+      onClick: () => refreshTaskData(activeTask?.target ?? selectedTarget),
+    },
+  ];
+
+  const sidebarActions: ShellAction[] = [
+    hasStoppableTask
+      ? { label: "Stop task", glyph: "ST", onClick: () => setStopConfirmOpen(true) }
+      : { label: "Home", glyph: "H", active: activeView === "home", onClick: () => navigateToView("home") },
+    { label: "Settings", glyph: "S", active: activeView === "settings", onClick: () => openSettings("basic") },
+    { label: "Console", glyph: "C", active: activeView === "advanced", onClick: () => navigateToView("advanced") },
+  ];
+
   return (
     <AppShell
       activeView={activeView}
       activeNavView={activeView === "advanced" ? "settings" : activeView}
       nav={nav}
       meta={VIEW_META[activeView]}
+      quickActions={quickActions}
+      sidebarActions={sidebarActions}
       backendUnavailable={configQuery.isError}
       backendError={configQuery.error instanceof Error ? configQuery.error.message : undefined}
       onRetryBackend={() => void configQuery.refetch()}
