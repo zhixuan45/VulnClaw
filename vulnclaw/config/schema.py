@@ -117,6 +117,8 @@ class LLMConfig(BaseModel):
     reasoning_effort: str = Field(
         default="high", description="Reasoning effort level (OpenAI o-series only)"
     )
+    stream: bool = Field(default=True, description="启用流式输出 LLM 响应")
+    stream_token_interval_ms: int = Field(default=0, description="流式 token 最小推送间隔 (ms)，0=不限制")
 
 
 class MCPTransportConfig(BaseModel):

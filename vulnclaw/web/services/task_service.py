@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 from vulnclaw.agent.constraint_policy import validate_action_constraints
+from vulnclaw.agent.stream_events import StreamEvent, StreamEventType
 from vulnclaw.agent.context import TaskConstraints
 from vulnclaw.agent.core import AgentCore
 from vulnclaw.agent.input_analysis import extract_task_constraints
@@ -60,12 +61,20 @@ async def _run_task(manager: WebTaskManager, task_id: str, request: TaskCreateRe
                 },
             )
 
+        # 创建流式回调
+        def make_stream_callback(tid: str):
+            async def cb(event):
+                manager.publish_stream(tid, event)
+            return cb
+
+        stream_cb = make_stream_callback(task_id)
+
         async def runner_fn(shared_agent: AgentCore) -> None:
             manager.set_running(task_id)
             if request.command == "persistent":
-                await _run_persistent_task(manager, task_id, shared_agent, request)
+                await _run_persistent_task(manager, task_id, shared_agent, request, stream_cb)
             else:
-                await _run_single_task(manager, task_id, shared_agent, request)
+                await _run_single_task(manager, task_id, shared_agent, request, stream_cb)
 
         run_result = await run_agent_task(
             agent=agent,
@@ -88,7 +97,7 @@ async def _run_task(manager: WebTaskManager, task_id: str, request: TaskCreateRe
 
 
 async def _run_single_task(
-    manager: WebTaskManager, task_id: str, agent: AgentCore, request: TaskCreateRequest
+    manager: WebTaskManager, task_id: str, agent: AgentCore, request: TaskCreateRequest, stream_cb=None
 ) -> None:
     prompt = _build_prompt_v2(request)
 
@@ -99,6 +108,7 @@ async def _run_single_task(
             target=request.target,
             max_rounds=max_rounds,
             on_step=_build_step_callback(manager, task_id),
+            stream_callback=stream_cb,
         )
         if results:
             last = results[-1]
@@ -107,7 +117,7 @@ async def _run_single_task(
             )
         return
 
-    result = await agent.chat(prompt, target=request.target)
+    result = await agent.chat(prompt, target=request.target, stream_callback=stream_cb)
     if result.output:
         manager.publish(
             task_id,
@@ -121,7 +131,7 @@ async def _run_single_task(
 
 
 async def _run_persistent_task(
-    manager: WebTaskManager, task_id: str, agent: AgentCore, request: TaskCreateRequest
+    manager: WebTaskManager, task_id: str, agent: AgentCore, request: TaskCreateRequest, stream_cb=None
 ) -> None:
     rounds_per_cycle = (
         request.options.rounds_per_cycle or agent.config.session.persistent_rounds_per_cycle
@@ -161,6 +171,7 @@ async def _run_persistent_task(
         auto_report=True,
         on_cycle_step=on_cycle_step,
         on_cycle_complete=on_cycle_complete,
+        stream_callback=stream_cb,
     )
 
 

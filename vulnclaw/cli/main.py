@@ -55,6 +55,7 @@ from vulnclaw.config.settings import (
     save_config,
     set_config_value,
 )
+from vulnclaw.cli.stream_display import create_cli_stream_handler
 from vulnclaw.orchestrator import run_agent_task
 from vulnclaw.repl_runner import run_repl_call
 from vulnclaw.target_state.store import (
@@ -328,16 +329,21 @@ def _run_repl() -> None:
 
                 try:
 
+                    handler3, stop_display3 = create_cli_stream_handler(console, config.session.show_thinking)
                     async def _run_persistent():
-                        return await agent.persistent_pentest(
-                            user_input=persistent_prompt,
-                            target=persistent_target,
-                            rounds_per_cycle=rounds_per_cycle,
-                            max_cycles=max_cycles,
-                            auto_report=auto_report,
-                            on_cycle_step=_on_persistent_step,
-                            on_cycle_complete=_on_persistent_cycle,
-                        )
+                        try:
+                            return await agent.persistent_pentest(
+                                user_input=persistent_prompt,
+                                target=persistent_target,
+                                rounds_per_cycle=rounds_per_cycle,
+                                max_cycles=max_cycles,
+                                auto_report=auto_report,
+                                on_cycle_step=_on_persistent_step,
+                                on_cycle_complete=_on_persistent_cycle,
+                                stream_callback=handler3,
+                            )
+                        finally:
+                            stop_display3()
 
                     asyncio.run(_run_persistent())
                     if auto_report and not all_cycle_results:
@@ -408,25 +414,30 @@ def _run_repl() -> None:
                     )
                     console.print()
 
+                    handler2, stop_display2 = create_cli_stream_handler(console, config.session.show_thinking)
                     async def _run_auto():
                         async def call():
-                            def on_step(round_num, result):
-                                nonlocal current_target, current_phase
-                                console.print(f"[dim]-- Round {round_num} --[/]")
-                                if result.output:
-                                    _print_agent_output(result.output, config)
-                                console.print()
-                                if result.target:
-                                    current_target = result.target
-                                if result.phase:
-                                    current_phase = result.phase
+                            try:
+                                def on_step(round_num, result):
+                                    nonlocal current_target, current_phase
+                                    console.print(f"[dim]-- Round {round_num} --[/]")
+                                    if result.output:
+                                        _print_agent_output(result.output, config)
+                                    console.print()
+                                    if result.target:
+                                        current_target = result.target
+                                    if result.phase:
+                                        current_phase = result.phase
 
-                            return await agent.auto_pentest(
-                                user_input,
-                                target=current_target,
-                                max_rounds=config.session.max_rounds,
-                                on_step=on_step,
-                            )
+                                return await agent.auto_pentest(
+                                    user_input,
+                                    target=current_target,
+                                    max_rounds=config.session.max_rounds,
+                                    on_step=on_step,
+                                    stream_callback=handler2,
+                                )
+                            finally:
+                                stop_display2()
 
                         async def after_result(results):
                             if results:
@@ -464,9 +475,13 @@ def _run_repl() -> None:
 
                 else:
                     # Single-turn chat
+                    handler, stop_display = create_cli_stream_handler(console, config.session.show_thinking)
                     async def _run_agent():
                         async def call():
-                            return await agent.chat(user_input, target=current_target)
+                            try:
+                                return await agent.chat(user_input, target=current_target, stream_callback=handler)
+                            finally:
+                                stop_display()
 
                         async def after_result(result):
                             nonlocal current_target, current_phase
@@ -728,16 +743,21 @@ def run(
 
     async def _run():
         async def runner(agent, shared_config):
-            return await agent.auto_pentest(
-                prompt,
-                target=target,
-                max_rounds=shared_config.session.max_rounds,
-                on_step=lambda r, res: (
-                    _print_agent_output(f"[dim]Round {r}[/]: {res.output[:200]}...", shared_config)
-                    if res.output
-                    else None
-                ),
-            )
+            handler, stop = create_cli_stream_handler(console, shared_config.session.show_thinking)
+            try:
+                return await agent.auto_pentest(
+                    prompt,
+                    target=target,
+                    max_rounds=shared_config.session.max_rounds,
+                    on_step=lambda r, res: (
+                        _print_agent_output(f"[dim]Round {r}[/]: {res.output[:200]}...", shared_config)
+                        if res.output
+                        else None
+                    ),
+                    stream_callback=handler,
+                )
+            finally:
+                stop()
 
         result = await _run_cli_orchestrated_task(
             command="run",
@@ -856,15 +876,20 @@ def persistent(
 
     async def _run():
         async def runner(agent, _config):
-            return await agent.persistent_pentest(
-                user_input=prompt,
-                target=target,
-                rounds_per_cycle=rounds_per_cycle,
-                max_cycles=max_cycles,
-                auto_report=auto_report,
-                on_cycle_step=_on_cycle_step,
-                on_cycle_complete=_on_cycle_complete,
-            )
+            handler, stop = create_cli_stream_handler(console, _config.session.show_thinking)
+            try:
+                return await agent.persistent_pentest(
+                    user_input=prompt,
+                    target=target,
+                    rounds_per_cycle=rounds_per_cycle,
+                    max_cycles=max_cycles,
+                    auto_report=auto_report,
+                    on_cycle_step=_on_cycle_step,
+                    on_cycle_complete=_on_cycle_complete,
+                    stream_callback=handler,
+                )
+            finally:
+                stop()
 
         return await _run_cli_orchestrated_task(
             command="persistent",
@@ -954,10 +979,14 @@ def recon(
 
     async def _run():
         async def runner(agent, _config):
-            result = await agent.chat(prompt, target=target)
-            if result and result.output:
-                console.print(result.output)
-            return result
+            handler, stop = create_cli_stream_handler(console, _config.session.show_thinking)
+            try:
+                result = await agent.chat(prompt, target=target, stream_callback=handler)
+                if result and result.output:
+                    console.print(result.output)
+                return result
+            finally:
+                stop()
 
         await _run_cli_orchestrated_task(
             command="recon",
@@ -1014,10 +1043,14 @@ def scan(
 
     async def _run():
         async def runner(agent, _config):
-            result = await agent.chat(prompt, target=target)
-            if result and result.output:
-                console.print(result.output)
-            return result
+            handler, stop = create_cli_stream_handler(console, _config.session.show_thinking)
+            try:
+                result = await agent.chat(prompt, target=target, stream_callback=handler)
+                if result and result.output:
+                    console.print(result.output)
+                return result
+            finally:
+                stop()
 
         await _run_cli_orchestrated_task(
             command="scan",
@@ -1077,10 +1110,14 @@ def exploit(
 
     async def _run():
         async def runner(agent, _config):
-            result = await agent.chat(prompt, target=target)
-            if result and result.output:
-                console.print(result.output)
-            return result
+            handler, stop = create_cli_stream_handler(console, _config.session.show_thinking)
+            try:
+                result = await agent.chat(prompt, target=target, stream_callback=handler)
+                if result and result.output:
+                    console.print(result.output)
+                return result
+            finally:
+                stop()
 
         await _run_cli_orchestrated_task(
             command="exploit",

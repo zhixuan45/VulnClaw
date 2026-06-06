@@ -227,3 +227,10 @@ export interface ConstraintAuditView {
   by_code: Record<string, number>;
   recent_events: ConstraintAuditEventView[];
 }
+
+export interface StreamTokenEvent {
+  round_num: number;
+  event_type: string;
+  content: string;
+  metadata: Record<string, unknown>;
+}

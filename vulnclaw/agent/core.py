@@ -256,11 +256,15 @@ class AgentCore:
 
     # ── Single-turn chat (for manual REPL interaction) ──────────────
 
-    async def chat(self, user_input: str, target: Optional[str] = None) -> AgentResult:
+    async def chat(
+        self, user_input: str, target: Optional[str] = None, *, stream_callback=None
+    ) -> AgentResult:
         """Process a user message and return agent response (single turn).
 
         For multi-step tasks with targets, use auto_pentest() instead.
         Chat mode is for quick Q&A and simple single-step queries.
+
+        When stream_callback is provided, LLM responses are streamed token-by-token.
         """
         result = AgentResult()
 
@@ -287,7 +291,7 @@ class AgentCore:
 
         # Call LLM
         try:
-            response_text = await call_llm(self, system_prompt)
+            response_text = await call_llm(self, system_prompt, stream_callback=stream_callback)
             result.output = response_text
 
             # Add assistant response to context
@@ -312,9 +316,13 @@ class AgentCore:
         target: Optional[str] = None,
         max_rounds: int = 15,
         on_step: Optional[Callable[[int, AgentResult], None]] = None,
+        *,
+        stream_callback=None,
     ) -> list[AgentResult]:
         """Autonomous penetration test loop."""
-        return await run_auto_pentest(self, user_input, target, max_rounds, on_step)
+        return await run_auto_pentest(
+            self, user_input, target, max_rounds, on_step, stream_callback=stream_callback
+        )
 
     def _build_round_context(self, round_num: int, max_rounds: int) -> str:
         """Build context string for the current round in auto loop."""
@@ -331,6 +339,8 @@ class AgentCore:
         auto_report: bool = True,
         on_cycle_step: Optional[Callable[[int, int, AgentResult], None]] = None,
         on_cycle_complete: Optional[Callable[[int, "PersistentCycleResult"], None]] = None,
+        *,
+        stream_callback=None,
     ) -> list["PersistentCycleResult"]:
         """Persistent penetration test — runs cycles of auto_pentest until stopped."""
         return await run_persistent_pentest(
@@ -342,6 +352,7 @@ class AgentCore:
             auto_report,
             on_cycle_step,
             on_cycle_complete,
+            stream_callback=stream_callback,
         )
 
     def _detect_phase_from_output(self, output: str) -> Optional[PentestPhase]:

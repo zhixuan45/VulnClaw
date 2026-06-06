@@ -11,6 +11,7 @@ from vulnclaw.agent.context import PentestPhase
 from vulnclaw.agent.ctf_mode import update_ctf_state
 from vulnclaw.agent.llm_client import call_llm_auto
 from vulnclaw.agent.runtime_state import AgentResult, PersistentCycleResult
+from vulnclaw.agent.stream_events import StreamCallback, StreamEvent, StreamEventType
 
 RECON_MIN_ROUNDS = 8
 
@@ -21,6 +22,8 @@ async def auto_pentest(
     target: str | None = None,
     max_rounds: int = 15,
     on_step: Callable[[int, AgentResult], None] | None = None,
+    *,
+    stream_callback: StreamCallback | None = None,
 ) -> list[AgentResult]:
     results: list[AgentResult] = []
 
@@ -36,6 +39,8 @@ async def auto_pentest(
     agent._reset_runtime_state(user_input=user_input, detected_phase=detected_phase)
 
     for round_num in range(1, max_rounds + 1):
+        if stream_callback:
+            await stream_callback(StreamEvent(StreamEventType.ROUND_START, round_num=round_num))
         result = AgentResult()
         result.target = agent.context.state.target
         result.phase = agent.context.state.phase.value
@@ -48,7 +53,11 @@ async def auto_pentest(
         round_context = agent._build_round_context(round_num, max_rounds)
 
         try:
-            response_text = await call_llm_auto(agent, system_prompt, round_context)
+            response_text = await call_llm_auto(
+                agent, system_prompt, round_context,
+                stream_callback=stream_callback,
+                round_num=round_num,
+            )
             result.output = response_text
             agent.context.add_assistant_message(f"[Round {round_num} 分析] {response_text}")
             agent._finding_parser.parse(response_text)
@@ -174,6 +183,11 @@ async def auto_pentest(
             agent.runtime.consecutive_errors = 0
 
         results.append(result)
+        if stream_callback:
+            await stream_callback(StreamEvent(
+                StreamEventType.ROUND_END, round_num=round_num,
+                metadata={"should_continue": result.should_continue},
+            ))
         if on_step:
             on_step(round_num, result)
         if not result.should_continue:
@@ -191,6 +205,8 @@ async def persistent_pentest(
     auto_report: bool = True,
     on_cycle_step: Callable[[int, int, AgentResult], None] | None = None,
     on_cycle_complete: Callable[[int, PersistentCycleResult], None] | None = None,
+    *,
+    stream_callback: StreamCallback | None = None,
 ) -> list[PersistentCycleResult]:
     cycle_results: list[PersistentCycleResult] = []
 
@@ -238,6 +254,7 @@ async def persistent_pentest(
                 target=agent.context.state.target,
                 max_rounds=rounds_per_cycle,
                 on_step=_make_step_callback(cycle_num),
+                stream_callback=stream_callback,
             )
             cycle_results_list = results if results else cycle_results_list
         except KeyboardInterrupt:

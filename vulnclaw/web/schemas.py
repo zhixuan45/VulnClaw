@@ -258,3 +258,10 @@ class ConstraintAuditView(BaseModel):
     by_source: dict[str, int] = Field(default_factory=dict)
     by_code: dict[str, int] = Field(default_factory=dict)
     recent_events: list[ConstraintAuditEventView] = Field(default_factory=list)
+
+
+class StreamTokenPayload(BaseModel):
+    round_num: int = 0
+    event_type: str = ""
+    content: str = ""
+    metadata: dict = Field(default_factory=dict)

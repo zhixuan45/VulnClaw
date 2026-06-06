@@ -58,6 +58,16 @@ class WebTaskManager:
             queue.put_nowait(evt)
         self._save_state()
 
+    def publish_stream(self, task_id: str, event) -> None:
+        """发布流式 token 事件到 SSE 通道."""
+        from dataclasses import asdict
+        self.publish(task_id, "stream_tokens", {
+            "round_num": event.round_num,
+            "event_type": str(event.type),
+            "content": event.content,
+            "metadata": event.metadata,
+        })
+
     def set_restoring(self, task_id: str, *, snapshot_id: str | None = None) -> None:
         record = self._tasks[task_id]
         record.status = "restoring"

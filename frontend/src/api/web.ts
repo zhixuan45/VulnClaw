@@ -198,6 +198,7 @@ export function openTaskStream(taskId: string, onEvent: (event: TaskEvent) => vo
   source.addEventListener("task_completed", handler as EventListener);
   source.addEventListener("task_failed", handler as EventListener);
   source.addEventListener("task_stopped", handler as EventListener);
+  source.addEventListener("stream_tokens", handler as EventListener);
   source.onmessage = handler;
   return source;
 }
