@@ -166,8 +166,23 @@ def _format_tool_results_fallback(
     return "\n".join(parts)
 
 
-async def call_llm(agent: Any, system_prompt: str) -> str:
-    """Call the LLM with the current context and system prompt (single turn)."""
+async def call_llm(
+    agent: Any, system_prompt: str, *, stream_callback=None
+) -> str:
+    """Call the LLM with the current context and system prompt (single turn).
+
+    When stream_callback is provided, uses streaming mode with per-token events.
+    """
+    if stream_callback is not None:
+        # 懒加载避免循环导入
+        from vulnclaw.agent.stream_client import call_llm_stream
+
+        return await call_llm_stream(agent, system_prompt, stream_callback)
+    return await _call_llm_sync(agent, system_prompt)
+
+
+async def _call_llm_sync(agent: Any, system_prompt: str) -> str:
+    """非流式单轮调用（原有逻辑）."""
     client = agent._get_client()
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -188,8 +203,30 @@ async def call_llm(agent: Any, system_prompt: str) -> str:
     return _prepend_retry_notice(extract_response(choice.message), retry_attempts)
 
 
-async def call_llm_auto(agent: Any, system_prompt: str, round_context: str) -> str:
-    """Call the LLM in auto-pentest mode with round context appended."""
+async def call_llm_auto(
+    agent: Any,
+    system_prompt: str,
+    round_context: str,
+    *,
+    stream_callback=None,
+    round_num: int = 0,
+    cycle_num: int = 0,
+) -> str:
+    """Call the LLM in auto-pentest mode with round context appended.
+
+    When stream_callback is provided, uses streaming mode with per-token events.
+    """
+    if stream_callback is not None:
+        from vulnclaw.agent.stream_client import call_llm_auto_stream
+
+        return await call_llm_auto_stream(
+            agent, system_prompt, round_context, stream_callback, round_num, cycle_num
+        )
+    return await _call_llm_auto_sync(agent, system_prompt, round_context)
+
+
+async def _call_llm_auto_sync(agent: Any, system_prompt: str, round_context: str) -> str:
+    """非流式自主循环调用（原有逻辑）."""
     client = agent._get_client()
 
     messages = [{"role": "system", "content": system_prompt}]
